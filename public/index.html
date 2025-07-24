@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Produtos</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; }
+    li { margin-bottom: 10px; }
+    button { margin-left: 5px; }
+  </style>
+</head>
+<body>
+  <h1>Lista de Produtos</h1>
+  <ul id="lista">Carregando...</ul>
+
+  <h2 id="formTitle">Adicionar Produto</h2>
+  <form id="formProduto">
+    <input type="text" id="nome" placeholder="Nome" required>
+    <input type="number" id="preco" placeholder="Preço" step="0.01" required>
+    <input type="text" id="descricao" placeholder="Descrição">
+    <button type="submit">Salvar</button>
+    <button type="button" id="cancelar" style="display:none;">Cancelar</button>
+  </form>
+
+  <script>
+    let editandoId = null; // ID do produto que está sendo editado
+
+    function carregarProdutos() {
+      fetch('/produtos')
+        .then(res => res.json())
+        .then(produtos => {
+          const ul = document.getElementById('lista');
+          ul.innerHTML = '';
+          produtos.forEach(p => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+              <strong>${p.nome}</strong> - R$${p.preco.toFixed(2)}<br>${p.descricao || ''}
+              <br>
+              <button onclick="editarProduto(${p.id})">✏️ Editar</button>
+              <button onclick="excluirProduto(${p.id})">🗑️ Excluir</button>
+            `;
+            ul.appendChild(li);
+          });
+        });
+    }
+
+    function editarProduto(id) {
+      fetch(`/produtos`)
+        .then(res => res.json())
+        .then(produtos => {
+          const produto = produtos.find(p => p.id === id);
+          if (!produto) return alert("Produto não encontrado");
+
+          document.getElementById('nome').value = produto.nome;
+          document.getElementById('preco').value = produto.preco;
+          document.getElementById('descricao').value = produto.descricao;
+          document.getElementById('formTitle').textContent = "Editar Produto";
+          document.getElementById('cancelar').style.display = "inline";
+          editandoId = id;
+        });
+    }
+
+    function excluirProduto(id) {
+      if (!confirm("Tem certeza que deseja excluir este produto?")) return;
+      fetch(`/produtos/${id}`, {
+        method: 'DELETE'
+      })
+        .then(() => carregarProdutos())
+        .catch(err => alert('Erro ao excluir: ' + err.message));
+    }
+
+    document.getElementById('formProduto').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const nome = document.getElementById('nome').value;
+      const preco = parseFloat(document.getElementById('preco').value);
+      const descricao = document.getElementById('descricao').value;
+
+      const produto = { nome, preco, descricao };
+
+      const url = editandoId ? `/produtos/${editandoId}` : '/produtos';
+      const metodo = editandoId ? 'PUT' : 'POST';
+
+      fetch(url, {
+        method: metodo,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(produto)
+      })
+        .then(res => {
+          if (!res.ok) throw new Error('Erro ao salvar');
+          return res.json();
+        })
+        .then(() => {
+          carregarProdutos();
+          document.getElementById('formProduto').reset();
+          document.getElementById('formTitle').textContent = "Adicionar Produto";
+          document.getElementById('cancelar').style.display = "none";
+          editandoId = null;
+        })
+        .catch(err => alert(err.message));
+    });
+
+    document.getElementById('cancelar').addEventListener('click', function() {
+      document.getElementById('formProduto').reset();
+      document.getElementById('formTitle').textContent = "Adicionar Produto";
+      this.style.display = "none";
+      editandoId = null;
+    });
+
+    carregarProdutos();
+  </script>
+</body>
+</html>
